@@ -47,6 +47,21 @@ body {
     padding: 2rem;
     text-align: center;
 }
+/* Добавить в конец style.css */
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-icon.logout {
+    color: var(--danger); /* Красный цвет для выхода */
+}
+
+.btn-icon.logout:active {
+    transform: scale(0.9);
+}
+
 
 .logo-container { margin-bottom: 2rem; }
 .logo-icon { font-size: 4rem; color: var(--accent); display: block; margin-bottom: 10px; }
