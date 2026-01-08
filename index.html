@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brawl Stats Mini App</title>
+    <!-- Шрифты и Иконки -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- Стили -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Telegram WebApp Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+
+    <!-- ЭКРАН 1: ПРИВЕТСТВИЕ -->
+    <div id="welcome-screen" class="screen active">
+        <div class="welcome-content">
+            <div class="logo-container">
+                <span class="material-icons-round logo-icon">stars</span>
+                <h1>BRAWL STATS</h1>
+            </div>
+            <p class="welcome-text">Привет! 👋 Добро пожаловать в мини-приложение для статистики Brawl Stars</p>
+            
+            <div class="input-group">
+                <label for="player-tag">Player ID</label>
+                <div class="input-wrapper">
+                    <span class="input-prefix">#</span>
+                    <input type="text" id="player-tag" placeholder="ABC123XYZ" maxlength="15">
+                </div>
+                <div id="login-error" class="error-text" style="display: none;">Неверный формат или игрок не найден</div>
+            </div>
+
+            <button id="btn-login" class="btn-primary">
+                <span class="material-icons-round">search</span>
+                ПОЛУЧИТЬ СТАТИСТИКУ
+            </button>
+
+            <div class="help-section">
+                <h3>Как найти Player ID?</h3>
+                <p>Откройте Brawl Stars -> Нажмите на иконку профиля (слева вверху) -> Скопируйте ID под вашей аватаркой.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ЗАГРУЗКИ -->
+    <div id="loader-screen" class="screen">
+        <div class="loader"></div>
+        <p>Загрузка данных...</p>
+    </div>
+
+    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
+    <div id="app-container" class="screen">
+        <!-- Верхняя панель -->
+        <header class="app-header">
+            <div class="user-mini-profile">
+                <div class="user-icon-frame">
+                    <img id="header-avatar" src="https://cdn-icons-png.flaticon.com/512/10692/10692827.png" alt="Avatar">
+                </div>
+                <div class="user-info-text">
+                    <h2 id="header-username">Username</h2>
+                    <span id="header-tag">#TAG</span>
+                </div>
+            </div>
+            <button id="btn-refresh" class="btn-icon">
+                <span class="material-icons-round">refresh</span>
+            </button>
+        </header>
+
+        <!-- Контент табов -->
+        <main class="content-area">
+            
+            <!-- ТАБ 1: ГЛАВНАЯ -->
+            <div id="tab-home" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <span class="material-icons-round stat-icon">emoji_events</span>
+                        <div class="stat-value" id="home-trophies">0</div>
+                        <div class="stat-label">Текущие трофеи</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="material-icons-round stat-icon">trending_up</span>
+                        <div class="stat-value" id="home-max-trophies">0</div>
+                        <div class="stat-label">Макс. трофеи</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="material-icons-round stat-icon">stars</span>
+                        <div class="stat-value" id="home-exp-level">0</div>
+                        <div class="stat-label">Уровень опыта</div>
+                    </div>
+                </div>
+
+                <div class="wins-container">
+                    <div class="win-block">
+                        <span class="win-icon red">3v3</span>
+                        <span class="win-count" id="home-3v3">0</span>
+                        <span class="win-label">Победы 3x3</span>
+                    </div>
+                    <div class="win-block">
+                        <span class="win-icon green">Solo</span>
+                        <span class="win-count" id="home-solo">0</span>
+                        <span class="win-label">Solo SD</span>
+                    </div>
+                    <div class="win-block">
+                        <span class="win-icon blue">Duo</span>
+                        <span class="win-count" id="home-duo">0</span>
+                        <span class="win-label">Duo SD</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="row">
+                        <span>Рейтинг аккаунта</span>
+                        <span class="grade" id="home-grade">B+</span>
+                    </div>
+                    <div class="row">
+                        <span>Недавний винрейт</span>
+                        <span class="highlight-text" id="home-winrate">54%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ТАБ 2: БОЙЦЫ -->
+            <div id="tab-brawlers" class="tab-content">
+                <div class="filter-bar">
+                    <div class="search-wrap">
+                        <span class="material-icons-round">search</span>
+                        <input type="text" id="brawler-search" placeholder="Поиск бойца...">
+                    </div>
+                    <select id="brawler-sort">
+                        <option value="trophies">Трофеи ▼</option>
+                        <option value="rank">Ранг ▼</option>
+                        <option value="power">Сила ▼</option>
+                    </select>
+                </div>
+                <div class="section-title">
+                    Найденные бойцы: <span id="brawlers-count">0/0</span>
+                </div>
+                <div id="brawlers-list" class="brawlers-grid">
+                    <!-- Сюда JS добавит бойцов -->
+                </div>
+            </div>
+
+            <!-- ТАБ 3: РЕЖИМЫ (Mock data for demo) -->
+            <div id="tab-modes" class="tab-content">
+                <div id="modes-list" class="modes-list">
+                    <!-- Заполняется JS -->
+                </div>
+            </div>
+
+            <!-- ТАБ 4: ПРОГРЕСС -->
+            <div id="tab-progress" class="tab-content">
+                <div class="progress-card">
+                    <h3>Коллекция</h3>
+                    <div class="collection-item">
+                        <div class="col-header">
+                            <span>Бойцы</span>
+                            <span id="prog-brawlers">0/0</span>
+                        </div>
+                        <div class="progress-track"><div class="progress-fill" id="fill-brawlers" style="width: 0%"></div></div>
+                    </div>
+                    <div class="collection-item">
+                        <div class="col-header">
+                            <span>Звёздные силы</span>
+                            <span id="prog-star">0/0</span>
+                        </div>
+                        <div class="progress-track"><div class="progress-fill" id="fill-star" style="width: 0%"></div></div>
+                    </div>
+                    <div class="collection-item">
+                        <div class="col-header">
+                            <span>Гаджеты</span>
+                            <span id="prog-gadgets">0/0</span>
+                        </div>
+                        <div class="progress-track"><div class="progress-fill" id="fill-gadgets" style="width: 0%"></div></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Навигационная панель -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-tab="tab-home">
+                <span class="material-icons-round">home</span>
+                <span>Главная</span>
+            </button>
+            <button class="nav-item" data-tab="tab-brawlers">
+                <span class="material-icons-round">groups</span>
+                <span>Бойцы</span>
+            </button>
+            <button class="nav-item" data-tab="tab-modes">
+                <span class="material-icons-round">sports_esports</span>
+                <span>Режимы</span>
+            </button>
+            <button class="nav-item" data-tab="tab-progress">
+                <span class="material-icons-round">analytics</span>
+                <span>Прогресс</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ЭКРАН ДЕТАЛЕЙ БОЙЦА (Modal) -->
+    <div id="brawler-detail-screen" class="screen detail-view">
+        <header class="detail-header">
+            <button id="btn-back" class="btn-icon">
+                <span class="material-icons-round">arrow_back</span>
+            </button>
+            <h2 id="detail-name">SHELLY</h2>
+            <div style="width: 40px;"></div> <!-- spacer -->
+        </header>
+        <div class="detail-content">
+            <div class="brawler-hero">
+                <img id="detail-img" src="" alt="">
+                <div class="brawler-badges">
+                    <span class="badge power" id="detail-power">PWR 1</span>
+                    <span class="badge rank" id="detail-rank">Rank 1</span>
+                </div>
+            </div>
+            
+            <div class="detail-stats-grid">
+                <div class="d-stat">
+                    <span class="label">Трофеи</span>
+                    <span class="val" id="detail-trophies">0</span>
+                </div>
+                <div class="d-stat">
+                    <span class="label">Максимум</span>
+                    <span class="val" id="detail-max-trophies">0</span>
+                </div>
+                <div class="d-stat">
+                    <span class="label">Винрейт</span>
+                    <span class="val high" id="detail-winrate">--%</span>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h3>Снаряжение</h3>
+                <div class="gears-list" id="detail-gears">
+                    <!-- Иконки гаджетов/старок -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
