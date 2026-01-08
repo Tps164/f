@@ -1,5 +1,5 @@
 // ==========================================
-// ВАШ ТОКЕН API BRAWL STARS
+// ВАШ ТОКЕН (Я оставил тот, что вы прислали)
 const API_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiIsImtpZCI6IjI4YTMxOGY3LTAwMDAtYTFlYi03ZmExLTJjNzQzM2M2Y2NhNSJ9.eyJpc3MiOiJzdXBlcmNlbGwiLCJhdWQiOiJzdXBlcmNlbGw6Z2FtZWFwaSIsImp0aSI6Ijg3NTNiODhlLTE5ZWUtNGM2MC04NDcyLTlkYjc5MDBjMWYwNCIsImlhdCI6MTc2Nzc3MjA0MCwic3ViIjoiZGV2ZWxvcGVyL2Q0MjcyODk2LTBhMjYtODNkOS01MGQzLTgzZTczMzQyZGM5MiIsInNjb3BlcyI6WyJicmF3bHN0YXJzIl0sImxpbWl0cyI6W3sidGllciI6ImRldmVsb3Blci9zaWx2ZXIiLCJ0eXBlIjoidGhyb3R0bGluZyJ9LHsiY2lkcnMiOlsiOTguOTMuMTY2Ljg4Il0sInR5cGUiOiJjbGllbnQifV19.EHw0MzRsMT3cDQuqFkk2AlVDyMPp_z9LGZts8dflroQLA5lh36G1xh_t7uStdeqYCwN41dnZA8ajPLu6MmjvLA';
 // ==========================================
 
@@ -7,9 +7,8 @@ const APP = {
     currentPlayerId: null,
     data: null,
     brawlers: [],
-    // Прокси для обхода CORS (браузерной защиты)
-    proxyUrl: 'https://corsproxy.io/?', 
-    apiUrl: 'https://api.brawlstars.com/v1/players/%23',
+    // Используем спец. прокси от RoyaleAPI, он лучше работает с CORS
+    apiUrl: 'https://bsproxy.royaleapi.dev/v1/players/%23',
     
     ui: {
         screens: document.querySelectorAll('.screen'),
@@ -24,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.Telegram.WebApp.expand();
     }
 
-    // Проверка сохраненного входа
     const savedId = localStorage.getItem('bs_player_id');
     if (savedId) {
         APP.currentPlayerId = savedId;
@@ -33,10 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('welcome-screen');
     }
 
-    // Слушатели событий
     document.getElementById('btn-login').addEventListener('click', handleLoginInput);
     document.getElementById('btn-refresh').addEventListener('click', () => performLogin(APP.currentPlayerId));
-    document.getElementById('btn-logout').addEventListener('click', handleLogout); // Кнопка ВЫХОД
+    document.getElementById('btn-logout').addEventListener('click', handleLogout);
     
     document.getElementById('btn-back').addEventListener('click', () => {
         document.getElementById('brawler-detail-screen').style.display = 'none';
@@ -73,35 +70,29 @@ function handleLogout() {
 async function performLogin(tag) {
     showScreen('loader-screen');
     
-    // 1. Пытаемся получить реальные данные
+    // Пытаемся получить данные
     const success = await loadRealData(tag);
     
     if (success) {
         showScreen('app-container');
         renderAll();
     } else {
-        // 2. Если не вышло (ошибка токена/IP), грузим Демо, чтобы приложение работало
-        console.warn("Switching to Mock Data due to API error");
-        showToast("⚠️ Ошибка доступа к API. Показан ДЕМО режим.");
-        
-        APP.data = generateMockData(tag);
-        APP.brawlers = APP.data.brawlers;
-        
-        showScreen('app-container');
-        renderAll();
+        // ЕСЛИ ОШИБКА - ВОЗВРАЩАЕМ НА ГЛАВНУЮ (Никаких демо-данных!)
+        showScreen('welcome-screen');
+        // Текст ошибки уже показан в функции loadRealData через Toast
     }
 }
 
-// === API REQUEST ===
+// === ЗАПРОС К API ===
 
 async function loadRealData(tag) {
-    // Формируем URL через прокси
-    const targetUrl = APP.apiUrl + tag;
-    const fullUrl = APP.proxyUrl + encodeURIComponent(targetUrl);
+    // Прямой запрос через RoyaleAPI Proxy (без corsproxy.io)
+    const url = APP.apiUrl + tag;
     
     try {
-        console.log("Attempting fetch:", targetUrl);
-        const response = await fetch(fullUrl, { 
+        console.log("Fetching:", url);
+        
+        const response = await fetch(url, { 
             method: 'GET', 
             headers: {
                 'Authorization': `Bearer ${API_TOKEN}`,
@@ -110,47 +101,65 @@ async function loadRealData(tag) {
         });
         
         if (!response.ok) {
-            console.error('API Error Status:', response.status);
-            if (response.status === 403) showToast("⛔ Доступ запрещен (Неверный IP токена)");
-            if (response.status === 404) showToast("🔍 Игрок не найден");
-            if (response.status === 429) showToast("⏳ Слишком много запросов");
+            console.error('API Error:', response.status);
+            
+            if (response.status === 403) {
+                showToast("⛔ Ошибка доступа (403). Токен не подходит к IP.");
+                // ВАЖНО: Токен привязан к IP 98.93.166.88. 
+                // Если запрос идет не с этого IP, сервер его отклонит.
+            } else if (response.status === 404) {
+                showToast("🔍 Игрок с таким тегом не найден.");
+            } else if (response.status === 429) {
+                showToast("⏳ Слишком много запросов. Подождите.");
+            } else {
+                showToast(`❌ Ошибка сервера: ${response.status}`);
+            }
             return false;
         }
 
         const data = await response.json();
+        
+        // Проверка на всякий случай, вернул ли сервер корректную структуру
+        if (!data || !data.name) {
+             showToast("❌ Пришли пустые данные");
+             return false;
+        }
+
         APP.data = data;
         APP.brawlers = data.brawlers;
         return true;
 
     } catch (error) {
-        console.error('Network/CORS Error:', error);
+        console.error('Network Error:', error);
+        showToast("🌐 Ошибка сети или CORS. Проверьте интернет.");
         return false;
     }
 }
 
-// === УТИЛИТЫ И РЕНДЕР (ОСТАЛИСЬ ПРЕЖНИМИ, НО ДОБАВЛЕН TOAST) ===
+// === УТИЛИТЫ (Toast, Render...) ===
 
 function showToast(msg) {
-    // Создаем всплывающее уведомление
+    // Удаляем старые тосты
+    const old = document.querySelector('.toast-msg');
+    if(old) old.remove();
+
     const toast = document.createElement('div');
     toast.className = 'toast-msg';
     toast.textContent = msg;
     document.body.appendChild(toast);
     
-    // Анимация
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    }, 5000);
 }
 
 function renderAll() {
-    // Шапка
+    // Данные точно есть, иначе мы бы сюда не попали
     document.getElementById('header-username').textContent = APP.data.name;
     document.getElementById('header-tag').textContent = APP.data.tag;
     
-    // Главная
     document.getElementById('home-trophies').textContent = (APP.data.trophies || 0).toLocaleString();
     document.getElementById('home-max-trophies').textContent = (APP.data.highestTrophies || 0).toLocaleString();
     document.getElementById('home-exp-level').textContent = APP.data.expLevel || 0;
@@ -160,8 +169,10 @@ function renderAll() {
     document.getElementById('home-duo').textContent = APP.data.duoVictories || 0;
 
     renderBrawlersList(APP.brawlers);
-    
-    // Прогресс
+    renderProgress();
+}
+
+function renderProgress() {
     const totalBrawlers = 84; 
     const current = APP.brawlers.length;
     document.getElementById('prog-brawlers').textContent = `${current}/${totalBrawlers}`;
@@ -208,54 +219,4 @@ function openDetail(b) {
 
 function switchTab(id) {
     APP.ui.tabs.forEach(t => t.classList.remove('active'));
-    APP.ui.navItems.forEach(n => n.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    document.querySelector(`[data-tab="${id}"]`).classList.add('active');
-}
-
-function filterBrawlers() {
-    const q = document.getElementById('brawler-search').value.toLowerCase();
-    const filtered = APP.brawlers.filter(b => b.name.toLowerCase().includes(q));
-    renderBrawlersList(filtered);
-}
-
-function sortBrawlers() {
-    const type = document.getElementById('brawler-sort').value;
-    const sorted = [...APP.brawlers];
-    if (type === 'trophies') sorted.sort((a,b) => b.trophies - a.trophies);
-    if (type === 'rank') sorted.sort((a,b) => b.rank - a.rank);
-    if (type === 'power') sorted.sort((a,b) => b.power - a.power);
-    renderBrawlersList(sorted);
-}
-
-function showScreen(id) {
-    APP.ui.screens.forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
-
-function getRarityColor(rank) {
-    if(rank < 10) return '#B9F2FF'; 
-    if(rank < 20) return '#FFA'; 
-    if(rank < 25) return '#C061FF'; 
-    if(rank < 30) return '#00D166'; 
-    return '#FFCC00'; 
-}
-
-// Запасные демо-данные (на случай сбоя токена)
-function generateMockData(tag) {
-    return {
-        name: "DEMO_USER",
-        tag: "#" + tag,
-        trophies: 12500,
-        highestTrophies: 13000,
-        expLevel: 85,
-        '3vs3Victories': 1200,
-        soloVictories: 350,
-        duoVictories: 400,
-        brawlers: [
-            { name: "SHELLY", rank: 20, trophies: 500, highestTrophies: 510, power: 9 },
-            { name: "COLT", rank: 15, trophies: 300, highestTrophies: 320, power: 7 },
-            { name: "SPIKE", rank: 25, trophies: 750, highestTrophies: 750, power: 11 }
-        ]
-    };
-}
+    APP.ui.navItems.forEach(n => n.classList.remove('act
